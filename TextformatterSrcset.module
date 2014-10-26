@@ -1,0 +1,265 @@
+<?php
+
+class TextformatterSrcset extends Textformatter {
+
+	/**
+	 * Module information
+	 *
+	 */
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Srcset Image Textformatter', 
+			'version' => 90, 
+			'summary' => "Adds the srcset to images within a textarea" ,
+			'author' => 'Conclurer GbR',
+			'href' => '#',
+		); 
+	}
+	
+	/**
+	 * Module settings
+	 *
+	 */
+	 
+	protected static $defaultConfigData = array(
+
+		// settings
+			"resolutions" => "325,600,960", //Only numbers, seperated by comma
+			"sizes" => "auto", //What to put into the sizes attribute
+			"retina" => true, //Create an image double the largest image size for HiDPI devices
+			"data_atr"=> true, //Add the data-* attributes
+			"lqp" => true, //Use a low quality placeholder for the src attribut
+			"small_source" => false, //Use the smallest size as a source image instead of a scaled down image
+			"class" => 'lazyload' //Classes added to the image
+			
+			
+		);
+
+	protected $data = array(); // module data
+	/**
+	 * Set all settings to data
+	 *
+	 */
+
+	public function __construct() {
+		foreach(self::$defaultConfigData as $key => $value) {
+			$this->data[$key] = $value;
+		}
+	}
+
+  	/**
+	 * Get data by key
+	 *
+	 */
+
+	public function __get($key) {
+		return isset($this->data[$key]) ? $this->data[$key] : null;
+	}
+
+ 	/**
+	 * Set data at given key
+	 *
+	 */
+
+    public function __set($key, $value) {
+		$this->data[$key] = $value;
+	}
+	
+	 /**
+	 * The formatting itself.
+	 *
+	 */
+	public function format(&$str) {	
+		//if(strpos($str, '{') === false) return; // check if we even need to perform a preg_match and exit if not (added by Ryan)
+		
+		//Get all image tags from the $str and place them in $images
+		preg_match_all('/<img[^>]+>/i',$str, $images);
+		$images = $images[0];
+		
+		//No images? Then return
+		if(count($images)==0) return;
+		
+		//#todo What happens if this is only 1 image?
+		//Setup... 
+		$matches = array();
+		$fileLocation = wire("config")->urls->files;
+		$sizes = array_map( 'intval', array_filter( explode(',', $this->resolutions), 'is_numeric' ));
+		sort($sizes);
+		$options = array( 'upscaling' => false, 'cropping' => true);
+		$options_low = array( 'upscaling' => true, 'cropping' => true, 'quality' => floor(wire("config")->imageSizerOptions['quality']*0.33));
+		
+		//Looping through all images
+		foreach($images as $original) {
+			
+			//Building our new image string
+			$new = ''; 
+			$srcset = '';
+			$src = '';
+			$meta = array();
+			/**
+			* The following code was taken and modified from Martijn Geerts and the TextformatterImageInterceptor module.
+			*/
+			//Get the PageImage from our image
+			if(strpos($original, $fileLocation)) {			
+				
+				//Find source image
+				preg_match_all( '/src="(.*?)"/i', $original, $array);
+				$meta['source'] = $array[1][0]; // original
+				
+				// ProcessWire alignment done with a class
+				preg_match_all( '/class="(.*?)"/i', $original, $array);
+				$meta['pw_align'] = isset($array[1][0]) ? $array[1][0] : null; // original
+				
+				
+				//Get alt tag if it exists
+				preg_match_all( '/alt="(.*?)"/i', $original, $array);
+				$meta['alt'] = isset($array[1][0]) ? $array[1][0] : null; 		
+				
+				// example: 1023/image-name.100x100.jpg
+				$string = str_replace($fileLocation, "", $meta['source']);
+				// create array
+				$array = explode("/", $string);	
+				
+				// id of page where where image belongs to
+				$meta['id'] = (int) $array[0];
+				// refering to to page where the image lives.
+				$p = wire("pages")->get($meta['id']);
+				
+				// raw image variation name
+				$variationName = $array[1];		
+
+				// basename of image.
+				//$imageName = preg_replace("/\d+x\d+\./i","", $variationName);				
+				$tmp1= explode('.',$variationName);
+				$meta['imageName'] = $tmp1[0];				
+				
+				
+				// #todo far from perfect, but we try to get the image from hard-coded field images of the page.
+				$image = $p->images->get("name~={$meta['imageName']}");
+				
+				//No image? then stop
+				if(is_null($image)) break;		
+				 
+				//Get image size #todo use regex here
+				$array = explode(".",$string);
+				$array = substr($array[count($array)-2],0,-3); //Get the image tag and remove everything. results in e.g. 720x201 
+				$array = explode("x",$array);
+				if(count($array) == 2) //Shitty filtering in case it is the original image
+					$meta['width'] = (int)$array[0];
+				else
+					$meta['width'] = $image->width();					
+				//$meta['height'] = $array[1]; //Height is set to always 0 by PW
+			}
+			//$image is now our PageImage, $p the page of the Image
+	
+		
+			
+			/**
+			* Build the srcset
+			*/			
+			//When no sizes are set
+			if(empty($sizes)){
+				$srcset = "{$meta['source']} 1x";
+				//... and retina is active
+				if($this->retina) {
+					//And our image is sized (e.g. larger image possible). Then we can provide a better image to HiDPI devices
+					if($image->width() > $meta['width']) {
+						//Create retina version
+						$retina_image = $image->size($meta['width']*2,0,$options);
+						$srcset .= ", {$retina_image->url} 2x";
+					}
+				}
+			}
+			else {
+				//Sizes are set
+				$srcset = "";
+				
+				//For every size
+				foreach($sizes as $size) {
+					//Do we need this size as a source?
+					if($size < $meta['width']) {
+						//Orientation
+						if($image->width > $image->height) {
+							$new_image = $image->size($size,0,$options);
+						}
+						else {
+							$new_image = $image->size(0,$size,$options);
+						}
+						$srcset .= "{$new_image->url} {$new_image->width}w,";
+					}
+					
+				}		
+				//If HiDPI is enabled
+				if($this->retina) {
+					if($image->width() >= $meta['width']) {
+						//Create retina version
+						$retina_image = $image->size($meta['width']*2,0,$options);
+					}
+					else {
+						//Use the largest image
+						$retina_image = $image;
+					}
+					$srcset .= "{$retina_image->url} {$retina_image->width}w,";
+				}
+				
+				//Remove the last comma
+				$srcset = substr($srcset,0,-1);
+
+			}
+						
+			/**
+			* Build the src 
+			*/
+			$src = $meta['source'];
+			
+			if($this->lqp) {
+				//Should we use the smalles image from the sizes?
+				if($this->small_source && !empty($sizes)) {
+					//Orientation
+					if($image->width > $image->height) {
+						$src_image = $image->size($sizes[0],0,$options);
+					}
+					else {
+						$src_image = $image->size(0,$sizes[0],$options);
+					}
+				}
+				//Or do we really use a LQ image? Note, the 300 size is fixed here
+				else {
+					$new_size =  floor($image->width*0.2);
+					$src_image = $image->size($new_size,0,$options_low);
+				}
+				$src = $src_image->url;
+			}						
+				
+						
+			/**
+			* Finally, Build the <img>
+			*/
+			if($this->data_atr) {
+				$attribute = "data-";
+			}
+			else {
+				$attribute = "";
+			}
+			if($meta['pw_align'] != "" OR $this->class != "") {
+				$class = " class='";
+				if($meta['pw_align'] != "")
+					$class .= "{$meta['pw_align']} ";
+				if($this->class != '')
+					$class .= "{$this->class}";
+				$class .= "'";
+			}
+			
+			//Put it all together
+			$new = "<img src='{$src}' {$attribute}srcset='{$srcset}' {$attribute}sizes='{$this->sizes}' alt='{$meta['alt']}'{$class}/>";
+			
+			//Add to our new images
+			$matches[] = $new;
+		}
+		
+		//Replace all Image tags with our new ones and return.
+		$str = str_replace($images,$matches,$str);
+		return;
+	}	
+}
