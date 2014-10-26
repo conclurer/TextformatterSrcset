@@ -10,7 +10,7 @@ class TextformatterSrcset extends Textformatter implements ConfigurableModule {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Srcset Image Textformatter', 
-			'version' => 90, 
+			'version' => 95, 
 			'summary' => "Adds the srcset to images within a textarea" ,
 			'author' => 'Conclurer GbR'
 		); 
@@ -24,13 +24,14 @@ class TextformatterSrcset extends Textformatter implements ConfigurableModule {
 	protected static $defaultConfigData = array(
 
 		// settings
-			"resolutions" => "325,600,960", //Only numbers, seperated by comma
+			"resolutions" => "350,700", //Only numbers, seperated by comma
 			"sizes" => "auto", //What to put into the sizes attribute
 			"retina" => true, //Create an image double the largest image size for HiDPI devices
-			"data_attr"=> true, //Add the data-* attributes
-			"lqp" => true, //Use a low quality placeholder for the src attribut
+			"data_attr"=> false, //Add the data-* attributes
+			"wh_attr" => false, //Should we add width and height attributes?
+			"lqp" => true, //Use a low quality placeholder for the src attribute
 			"small_source" => false, //Use the smallest size as a source image instead of a scaled down image
-			"class" => 'lazyload' //Classes added to the image
+			"class" => '' //Classes added to the image
 			
 			
 		);
@@ -65,9 +66,7 @@ class TextformatterSrcset extends Textformatter implements ConfigurableModule {
 		$this->data[$key] = $value;
 	}
 
-	public function formatValue(Page $page, Field $field, &$str) {
-		//if(strpos($str, '{') === false) return; // check if we even need to perform a preg_match and exit if not (added by Ryan)
-		
+	public function formatValue(Page $page, Field $field, &$str) {		
 		//Get all image tags from the $str and place them in $images
 		preg_match_all('/<img[^>]+>/i',$str, $images);
 		$images = $images[0];
@@ -89,8 +88,6 @@ class TextformatterSrcset extends Textformatter implements ConfigurableModule {
 			
 			//Building our new image string
 			$new = ''; 
-			$srcset = '';
-			$src = '';
 			$meta = array();
 			/**
 			* The following code was taken and modified from Martijn Geerts and the TextformatterImageInterceptor module.
@@ -128,14 +125,19 @@ class TextformatterSrcset extends Textformatter implements ConfigurableModule {
 				//$imageName = preg_replace("/\d+x\d+\./i","", $variationName);				
 				$tmp1= explode('.',$variationName);
 				$meta['imageName'] = $tmp1[0];				
+				$meta['ext'] = $tmp1[count($tmp1)-1];
 				
+				//Thanks to Horst Nogajski for the following snippet
+				foreach($p->fields as $field) {
+				    if (! (bool) ($field->type instanceof FieldtypeImage)) continue; // if no images field, go on
+				    
+				    // find the field that holds the image
+				    if (!$p->get($field->name)->has('name=' . $meta['imageName'] . '.' . $meta['ext'])) continue;
+				    
+
+					$image = $p->get($field->name)->get('name=' . $meta['imageName'] . '.' . $meta['ext']);			
+				}
 				
-				// #todo far from perfect, but we try to get the image from hard-coded field images of the page.
-				$image = $p->images->get("name~={$meta['imageName']}");
-				
-				//No image? then stop
-				if(is_null($image)) break;		
-				 
 				//Get image size #todo use regex here
 				$array = explode(".",$string);
 				$array = substr($array[count($array)-2],0,-3); //Get the image tag and remove everything. results in e.g. 720x201 
@@ -143,13 +145,11 @@ class TextformatterSrcset extends Textformatter implements ConfigurableModule {
 				if(count($array) == 2) //Shitty filtering in case it is the original image
 					$meta['width'] = (int)$array[0];
 				else
-					$meta['width'] = $image->width();					
+					$meta['width'] = $image->width;					
 				//$meta['height'] = $array[1]; //Height is set to always 0 by PW
 			}
 			//$image is now our PageImage, $p the page of the Image
-	
-		
-			
+
 			/**
 			* Build the srcset
 			*/			
@@ -208,7 +208,7 @@ class TextformatterSrcset extends Textformatter implements ConfigurableModule {
 			*/
 			$src = $meta['source'];
 			
-			if($this->lqp) {
+			if($this->lqp OR $this->small_source) {
 				//Should we use the smalles image from the sizes?
 				if($this->small_source && !empty($sizes)) {
 					//Orientation
@@ -231,12 +231,18 @@ class TextformatterSrcset extends Textformatter implements ConfigurableModule {
 			/**
 			* Finally, Build the <img>
 			*/
+			$attribute = '';
+			$wh_attr = '';
+			$class = '';
+			
 			if($this->data_attr) {
 				$attribute = "data-";
 			}
-			else {
-				$attribute = "";
+			if($this->wh_attr) {
+				$tmp_height = $image->size($meta['width'],0)->height; 
+				$wh_attr = " width='{$meta['width']}' height='{$tmp_height}'";
 			}
+			
 			if($meta['pw_align'] != "" OR $this->class != "") {
 				$class = " class='";
 				if($meta['pw_align'] != "")
@@ -246,8 +252,9 @@ class TextformatterSrcset extends Textformatter implements ConfigurableModule {
 				$class .= "'";
 			}
 			
+
 			//Put it all together
-			$new = "<img src='{$src}' {$attribute}srcset='{$srcset}' {$attribute}sizes='{$this->sizes}' alt='{$meta['alt']}'{$class}/>";
+			$new = "<img src='{$src}' {$attribute}srcset='{$srcset}' {$attribute}sizes='{$this->sizes}'{$wh_attr} alt='{$meta['alt']}'{$class}/>";
 			
 			//Add to our new images
 			$matches[] = $new;
@@ -272,50 +279,61 @@ class TextformatterSrcset extends Textformatter implements ConfigurableModule {
 
         $resolutionsInput = wire('modules')->get('InputfieldText');
         $resolutionsInput->name = 'resolutions';
-        $resolutionsInput->title = __('Resolutions');
-        $resolutionsInput->description = __('Image resolutions to create.');
+        $resolutionsInput->label = __('Resolutions');
+        $resolutionsInput->description = __('Enter the resolutions (in Pixel) to be created for the srcset. Seperate by comma, leave empty if you do not need multiple sizes.');
         $resolutionsInput->value = $data['resolutions'];
         $wrapper->add($resolutionsInput);
 
         $sizesInput = wire('modules')->get('InputfieldText');
         $sizesInput->name = 'sizes';
-        $sizesInput->title = __('Sizes');
-        $sizesInput->description = __('.');
+        $sizesInput->label = __('Sizes-Attribute');
+        $sizesInput->description = __('Enter the value for the "sizes" attribute. Default is "auto".');
         $sizesInput->value = $data['sizes'];
         $wrapper->add($sizesInput);
 
         $retinaInput = wire('modules')->get('InputfieldCheckbox');
         $retinaInput->name = 'retina';
-        $retinaInput->title = __('Generate retina images');
-        $retinaInput->description = __('If active, retina images are created automatically.');
+        $retinaInput->label = __('Generate HiDPI images');
+        $retinaInput->description = __('Activate to create HiDPI images (double resolution). They appear as an additional size.');
         if($data['retina'] !== false) $retinaInput->checked = 1;
         $wrapper->add($retinaInput);
-
+        
+        $lqpInput = wire('modules')->get('InputfieldCheckbox');
+        $lqpInput->name = 'lqp';
+        $lqpInput->columnWidth = 50;
+        $lqpInput->label = __('Low-quality Placeholder');
+        $lqpInput->description = __('Activate to create a low-quality placeholder (LQP) image for the src-attribute.');
+        if($data['lqp'] !== false) $lqpInput->checked = 1;
+        $wrapper->add($lqpInput);
+        
+        $small_sourceInput = wire('modules')->get('InputfieldCheckbox');
+        $small_sourceInput->name = 'small_source';
+        $small_sourceInput->columnWidth = 50;
+        $small_sourceInput->label = __('Use smallest size as LQP');
+        $small_sourceInput->description = __('Activate to use the smallest sized image as the low-quality placeholder');
+        if($data['small_source'] !== false) $small_sourceInput->checked = 1;
+        $wrapper->add($small_sourceInput);
+        
+        $wh_attrInput = wire('modules')->get('InputfieldCheckbox');
+        $wh_attrInput->name = 'wh_attr';
+        $wh_attrInput->columnWidth = 50;
+        $wh_attrInput->label = __('Width/Height Attributes');
+        $wh_attrInput->description = __('Activate to add the right width and height attribute.');
+        if($data['wh_attr'] !== false) $wh_attrInput->checked = 1;
+        $wrapper->add($wh_attrInput);
+             
         $data_attrInput = wire('modules')->get('InputfieldCheckbox');
         $data_attrInput->name = 'data_attr';
-        $data_attrInput->title = __('Use data attribute');
-        $data_attrInput->description = __('If active, data attributes are created instead of normal attributes.');
+        $data_attrInput->columnWidth = 50;
+        $data_attrInput->label = __('Data* Attributes');
+        $data_attrInput->description = __('Activate to add a data*- before the srcset and sizes attributes.');
         if($data['data_attr'] !== false) $data_attrInput->checked = 1;
         $wrapper->add($data_attrInput);
 
-        $lqpInput = wire('modules')->get('InputfieldCheckbox');
-        $lqpInput->name = 'lqp';
-        $lqpInput->title = __('Low-quality Placeholder');
-        $lqpInput->description = __('If active, a low-quality placeholder is used as the default image.');
-        if($data['lqp'] !== false) $lqpInput->checked = 1;
-        $wrapper->add($lqpInput);
-
-        $small_sourceInput = wire('modules')->get('InputfieldCheckbox');
-        $small_sourceInput->name = 'small_source';
-        $small_sourceInput->title = __('Use smallest size as source image');
-        $small_sourceInput->description = __('If active, the smallest size of the image is used as the source image instead of an scaled down image.');
-        if($data['small_source'] !== false) $small_sourceInput->checked = 1;
-        $wrapper->add($small_sourceInput);
-
         $classInput = wire('modules')->get('InputfieldText');
         $classInput->name = 'class';
-        $classInput->title = __('Class');
-        $classInput->description = __('This class name is added to the image tags.');
+        $classInput->label = __('CSS Class');
+        $classInput->description = __('Enter CSS-class names that will be added to each image.');
         $classInput->value = $data['class'];
         $wrapper->add($classInput);
 
