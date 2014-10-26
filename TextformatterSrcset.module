@@ -1,6 +1,6 @@
 <?php
 
-class TextformatterSrcset extends Textformatter {
+class TextformatterSrcset extends Textformatter implements ConfigurableModule {
 
 	/**
 	 * Module information
@@ -12,8 +12,7 @@ class TextformatterSrcset extends Textformatter {
 			'title' => 'Srcset Image Textformatter', 
 			'version' => 90, 
 			'summary' => "Adds the srcset to images within a textarea" ,
-			'author' => 'Conclurer GbR',
-			'href' => '#',
+			'author' => 'Conclurer GbR'
 		); 
 	}
 	
@@ -28,7 +27,7 @@ class TextformatterSrcset extends Textformatter {
 			"resolutions" => "325,600,960", //Only numbers, seperated by comma
 			"sizes" => "auto", //What to put into the sizes attribute
 			"retina" => true, //Create an image double the largest image size for HiDPI devices
-			"data_atr"=> true, //Add the data-* attributes
+			"data_attr"=> true, //Add the data-* attributes
 			"lqp" => true, //Use a low quality placeholder for the src attribut
 			"small_source" => false, //Use the smallest size as a source image instead of a scaled down image
 			"class" => 'lazyload' //Classes added to the image
@@ -65,12 +64,8 @@ class TextformatterSrcset extends Textformatter {
     public function __set($key, $value) {
 		$this->data[$key] = $value;
 	}
-	
-	 /**
-	 * The formatting itself.
-	 *
-	 */
-	public function format(&$str) {	
+
+	public function formatValue(Page $page, Field $field, &$str) {
 		//if(strpos($str, '{') === false) return; // check if we even need to perform a preg_match and exit if not (added by Ryan)
 		
 		//Get all image tags from the $str and place them in $images
@@ -236,7 +231,7 @@ class TextformatterSrcset extends Textformatter {
 			/**
 			* Finally, Build the <img>
 			*/
-			if($this->data_atr) {
+			if($this->data_attr) {
 				$attribute = "data-";
 			}
 			else {
@@ -261,5 +256,69 @@ class TextformatterSrcset extends Textformatter {
 		//Replace all Image tags with our new ones and return.
 		$str = str_replace($images,$matches,$str);
 		return;
-	}	
+	}
+
+    /**
+     * Return an InputfieldsWrapper of Inputfields used to configure the class
+     *
+     * @param array $data Array of config values indexed by field name
+     * @return InputfieldWrapper
+     *
+     */
+    public static function getModuleConfigInputfields(array $data)
+    {
+        $data = array_merge(self::$defaultConfigData, $data);
+        $wrapper = new InputfieldWrapper();
+
+        $resolutionsInput = wire('modules')->get('InputfieldText');
+        $resolutionsInput->name = 'resolutions';
+        $resolutionsInput->title = __('Resolutions');
+        $resolutionsInput->description = __('Image resolutions to create.');
+        $resolutionsInput->value = $data['resolutions'];
+        $wrapper->add($resolutionsInput);
+
+        $sizesInput = wire('modules')->get('InputfieldText');
+        $sizesInput->name = 'sizes';
+        $sizesInput->title = __('Sizes');
+        $sizesInput->description = __('.');
+        $sizesInput->value = $data['sizes'];
+        $wrapper->add($sizesInput);
+
+        $retinaInput = wire('modules')->get('InputfieldCheckbox');
+        $retinaInput->name = 'retina';
+        $retinaInput->title = __('Generate retina images');
+        $retinaInput->description = __('If active, retina images are created automatically.');
+        if($data['retina'] !== false) $retinaInput->checked = 1;
+        $wrapper->add($retinaInput);
+
+        $data_attrInput = wire('modules')->get('InputfieldCheckbox');
+        $data_attrInput->name = 'data_attr';
+        $data_attrInput->title = __('Use data attribute');
+        $data_attrInput->description = __('If active, data attributes are created instead of normal attributes.');
+        if($data['data_attr'] !== false) $data_attrInput->checked = 1;
+        $wrapper->add($data_attrInput);
+
+        $lqpInput = wire('modules')->get('InputfieldCheckbox');
+        $lqpInput->name = 'lqp';
+        $lqpInput->title = __('Low-quality Placeholder');
+        $lqpInput->description = __('If active, a low-quality placeholder is used as the default image.');
+        if($data['lqp'] !== false) $lqpInput->checked = 1;
+        $wrapper->add($lqpInput);
+
+        $small_sourceInput = wire('modules')->get('InputfieldCheckbox');
+        $small_sourceInput->name = 'small_source';
+        $small_sourceInput->title = __('Use smallest size as source image');
+        $small_sourceInput->description = __('If active, the smallest size of the image is used as the source image instead of an scaled down image.');
+        if($data['small_source'] !== false) $small_sourceInput->checked = 1;
+        $wrapper->add($small_sourceInput);
+
+        $classInput = wire('modules')->get('InputfieldText');
+        $classInput->name = 'class';
+        $classInput->title = __('Class');
+        $classInput->description = __('This class name is added to the image tags.');
+        $classInput->value = $data['class'];
+        $wrapper->add($classInput);
+
+        return $wrapper;
+    }
 }
