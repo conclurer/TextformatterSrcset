@@ -10,7 +10,7 @@ class TextformatterSrcset extends Textformatter implements ConfigurableModule {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Srcset Image Textformatter', 
-			'version' => 95, 
+			'version' => 100, 
 			'summary' => "Adds the srcset to images within a textarea" ,
 			'author' => 'Conclurer GbR'
 		); 
@@ -295,7 +295,7 @@ class TextformatterSrcset extends Textformatter implements ConfigurableModule {
         $retinaInput->name = 'retina';
         $retinaInput->label = __('Generate HiDPI images');
         $retinaInput->description = __('Activate to create HiDPI images (double resolution). They appear as an additional size.');
-        if($data['retina'] !== false) $retinaInput->checked = 1;
+        if(!empty($data['retina'])) $retinaInput->checked = 1;
         $wrapper->add($retinaInput);
         
         $lqpInput = wire('modules')->get('InputfieldCheckbox');
@@ -303,7 +303,7 @@ class TextformatterSrcset extends Textformatter implements ConfigurableModule {
         $lqpInput->columnWidth = 50;
         $lqpInput->label = __('Low-quality Placeholder');
         $lqpInput->description = __('Activate to create a low-quality placeholder (LQP) image for the src-attribute.');
-        if($data['lqp'] !== false) $lqpInput->checked = 1;
+        if(!empty($data['lqp'])) $lqpInput->checked = 1;
         $wrapper->add($lqpInput);
         
         $small_sourceInput = wire('modules')->get('InputfieldCheckbox');
@@ -311,7 +311,7 @@ class TextformatterSrcset extends Textformatter implements ConfigurableModule {
         $small_sourceInput->columnWidth = 50;
         $small_sourceInput->label = __('Use smallest size as LQP');
         $small_sourceInput->description = __('Activate to use the smallest sized image as the low-quality placeholder');
-        if($data['small_source'] !== false) $small_sourceInput->checked = 1;
+        if(!empty($data['small_source'])) $small_sourceInput->checked = 1;
         $wrapper->add($small_sourceInput);
         
         $wh_attrInput = wire('modules')->get('InputfieldCheckbox');
@@ -319,7 +319,7 @@ class TextformatterSrcset extends Textformatter implements ConfigurableModule {
         $wh_attrInput->columnWidth = 50;
         $wh_attrInput->label = __('Width/Height Attributes');
         $wh_attrInput->description = __('Activate to add the right width and height attribute.');
-        if($data['wh_attr'] !== false) $wh_attrInput->checked = 1;
+        if(!empty($data['wh_attr'])) $wh_attrInput->checked = 1;
         $wrapper->add($wh_attrInput);
              
         $data_attrInput = wire('modules')->get('InputfieldCheckbox');
@@ -327,7 +327,7 @@ class TextformatterSrcset extends Textformatter implements ConfigurableModule {
         $data_attrInput->columnWidth = 50;
         $data_attrInput->label = __('Data* Attributes');
         $data_attrInput->description = __('Activate to add a data*- before the srcset and sizes attributes.');
-        if($data['data_attr'] !== false) $data_attrInput->checked = 1;
+        if(!empty($data['data_attr'])) $data_attrInput->checked = 1;
         $wrapper->add($data_attrInput);
 
         $classInput = wire('modules')->get('InputfieldText');
