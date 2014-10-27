@@ -1,8 +1,9 @@
 # TextformatterImageSRCSET
  
-This is a Textformatter for the ProcessWire CMS. It will add the srcset and sizes attributes to every `img` tag inside a field. This enables your site to make better use of responsive/adaptive images even when they were created by a regular editor inside e.g. a Textarea. 
+This is a Textformatter for the [ProcessWire CMS](http://www.processwire.com). It will add the [srcset](http://responsiveimages.org) and sizes attributes to every `img` tag inside a field. This enables your site to make better use of responsive/adaptive images even when they were created by a regular editor inside e.g. a Textarea. 
  
 The formatter requires ProcessWire 2.5+. It will generate lots of different image variations that might fill up your storage. _Use it on your own risk._
+
  
 ## Features
 - Create srcset and sizes attributes
@@ -13,9 +14,18 @@ The formatter requires ProcessWire 2.5+. It will generate lots of different imag
 - Configurable to fit your needs
 - Respects all settings from the CKEditor or other ProcessWire modules
  
- 
+![Screenshot Configuration](https://www.conclurer.com/site/assets/files/1133/textformattersrcset-screen.jpg)
+## Setup
+Please note, that this module only affects fields where the Textformatter ist active. For images outside of the fields, you have to create the markup for srcset images yourself. 
+
+Install it like any other Textformatter for ProcessWire:
+
+1. Install the module
+2. Configure the module
+3. Go e.g. to your `body` field, go to the `Details` page and add TextformatterSrcset
+
 ## Settings
-You can find those settings on the module configuration page.
+You can find those settings on the module configuration page. 
  
 ### Resolutions
 Enter the different sizes you want to have in your srcset-attribute. Those will be used as the *w values and images will be created accordingly. For example, if you have a 960px large grid with breakpoints at 720px and 320px, you enter  `320,720,960 ` into this field. Note, that the HiDPI option might add another value to this.
@@ -59,12 +69,35 @@ Use this to prefix the sizes and the  `srcset ` attribute with data-*. This mean
  
 ### CSS Class
 Values entered here will be added as a CSS-class to the `img`. Note, that any classes set by the Textarea/Editor will be kept.
+
 ## Example usage scenarios
+These examples can be quickly implemented.
+#### Make Apple Retina users happy (also HiDPI visitors)
+1. Activate the "HiDPI" and the "width/height Attribute" options. Leave the "Resolutions" field blank.
+2. Place the polyfill [respimage.js](https://github.com/aFarkas/respimage) on your page. 
+
+#### Integrate lazy-loading images 
+1. Activate the Low-quality placeholder and the data-* attributes. Leave the "Resolutions" blank.
+2. Enter `lazyload` into the "CSS Class" field.
+3. Make sure that the [lazysizes](https://github.com/aFarkas/lazysizes) script is included in your sites markup
+
+#### 
+
  
 ## Further information
 ### Other PageImage fields
-This Textformatter is compatible with every other type of PageImage. This means, that the great (new) ImageFocusArea module will work with this and even use the correct sizing options.
+This Textformatter is compatible with every other type of PageImage. This means, that the great (new) [ImageFocusArea module](https://processwire.com/talk/topic/8079-imagefocusarea/) will work with this and even use the correct sizing options.
  
 ### Useful JS libraries
+Best used together with
+- [Arkas Lazysizes](https://github.com/aFarkas/lazysizes), a superfast, flexible and easy-to-use Image lazyloader
+- [Arkas respimage](https://github.com/aFarkas/respimage), the easist way to get all browser to use the new srcset images.
  
-### Linksmail
+### Thanks
+We would like to thank 
+- Martijn Geerts for some parts of the image search code
+- Horst Nogajski for helping finding the right image field
+ 
+### Improve more
+You can try this module on our [one-click ProcessWire Hosting Service lightning.pw](https://lightning.pw) or make the images even smaller with the [image compression service minimize.pw](https://minimize.pw).
+
