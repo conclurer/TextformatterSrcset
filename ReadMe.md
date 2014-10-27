@@ -10,7 +10,7 @@ The formatter requires ProcessWire 2.5+. It will generate lots of different imag
 - Generate the right image resolutions on the fly
 - Simple HiDPI/Retina images
 - Use a low-quality placeholder as the src
-- Easy Usage with the respimg.js and lazyload.js scripts from XXX
+- Easy Usage with the [respimage](https://github.com/aFarkas/respimage) and [Lazysizes](https://github.com/aFarkas/lazysizes) scripts
 - Configurable to fit your needs
 - Respects all settings from the CKEditor or other ProcessWire modules
  
@@ -81,7 +81,11 @@ These examples can be quickly implemented.
 2. Enter `lazyload` into the "CSS Class" field.
 3. Make sure that the [lazysizes](https://github.com/aFarkas/lazysizes) script is included in your sites markup
 
-#### 
+#### Use different resolutions for different screens
+1. Enter each breakpoint in Pixels into the Resolutions field. Example: 300,720,1000
+2. Activate the HiDPI option
+2. Place the polyfill [respimage.js](https://github.com/aFarkas/respimage) on your page. 
+3. (Optional) Activate the Low-quality Placeholder option
 
  
 ## Further information
