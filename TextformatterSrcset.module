@@ -129,7 +129,7 @@ class TextformatterSrcset extends Textformatter implements ConfigurableModule {
 				
 				//Thanks to Horst Nogajski for the following snippet
 				foreach($p->fields as $field) {
-				    if (! (bool) ($field->type instanceof FieldtypeImage)) continue; // if no images field, go on
+				    if (! (bool) ($field->type instanceof FieldtypeImage)  || is_null($p->get($field->name))) continue; // if no images field or null, go on
 				    
 				    // find the field that holds the image
 				    if (!$p->get($field->name)->has('name=' . $meta['imageName'] . '.' . $meta['ext'])) continue;
